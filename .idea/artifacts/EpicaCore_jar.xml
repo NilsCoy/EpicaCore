@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="EpicaCore:jar">
+    <output-path>D:/Сервер активатор/servers/EpicaClone/plugins</output-path>
+    <root id="archive" name="EpicaCore.jar">
+      <element id="module-output" name="EpicaCore" />
+    </root>
+  </artifact>
+</component>
