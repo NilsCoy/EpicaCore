@@ -1,38 +1,30 @@
 package org.nilscoy.epicacore;
 
 import org.bukkit.ChatColor;
+import org.bukkit.Color;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerLoginEvent;
-import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
-import org.bukkit.material.MaterialData;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import  org.jetbrains.annotations.NotNull;
-import org.jnbt.NBTConstants;
-import org.yaml.snakeyaml.util.ArrayUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Objects;
+import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 
 public final class EpicaCore extends JavaPlugin implements Listener {
@@ -43,16 +35,6 @@ public final class EpicaCore extends JavaPlugin implements Listener {
     public void onEnable() {
         getLogger().log(Level.INFO, "Hello!");
         getServer().getPluginManager().registerEvents(this, this);
-
-//        File file = new File(getDataFolder()+File.separator+"PlayerData", user+".yml");
-//        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
-//        if (!file.exists()) {
-//            try {
-//                file.createNewFile();
-//            } catch (IOException e) {
-//                throw new RuntimeException(e);
-//            }
-//        }
 
         instance = this;
 //        int version = 14;
@@ -130,9 +112,11 @@ public final class EpicaCore extends JavaPlugin implements Listener {
             }
         }
     }
+
     @EventHandler
-    public void onBlockClick(@NotNull PlayerInteractEvent event) {
+    public void onBlockClick(@NotNull PlayerInteractEvent event) throws IOException {
         ItemStack item = event.getPlayer().getInventory().getItemInMainHand();
+        String player = event.getPlayer().getName();
         // getServer().broadcastMessage(item.getType().name());
         if (event.getAction().name() == "RIGHT_CLICK_BLOCK") {
             if (event.getClickedBlock().getType().name() == "GRINDSTONE") {
@@ -148,36 +132,108 @@ public final class EpicaCore extends JavaPlugin implements Listener {
                 }
             }
         }
-        if (event.getAction().name() == "RIGHT_CLICK_BLOCK") {
-            if (event.getClickedBlock().getType().name() == "CAULDRON") {
+        if (event.getHand() == EquipmentSlot.HAND && event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getClickedBlock().getType() == Material.WATER_CAULDRON) {
+            getServer().broadcastMessage("1");
+            if (!event.getPlayer().getGameMode().name().equals("CREATIVE")) {
+                getServer().broadcastMessage("2");
+                event.setCancelled(true);
                 if (item.getType().name() != "AIR") {
-                    String[] materials = {
+                    String[] ingredients = {
                             "Лепесток тысячелистника",
                             "Корень горькоцвета",
                             "Семена полыни",
                             "Лист наперстянки",
                             "Хаустония",
-                            "Лесные ягоды"
-                    };
-                    String[] reagents = {
+                            "Лесные ягоды",
                             "Ягодная настойка",
                             "Мутниковая вода",
                             "Тертые растения",
                     };
-                    if (Arrays.asList(materials).contains(item.getType().name())) {
-                        ItemStack potion = new ItemStack(Material.POTION, 1);
-                        potion = addEffect(potion, PotionEffectType.HEAL);
+
+                    if (item.getType() == Material.GLASS_BOTTLE) {
+                        item.setAmount(item.getAmount()-1);
+                        event.getPlayer().getInventory().addItem(createPotion(getUserDataCouldron(player).toArray(new String[getUserDataCouldron(player).size()])));
+                        // getServer().broadcastMessage("Create new potion");
+                        List<String> data = new ArrayList<String>();
+                        setUserDataCouldron(player, data);
+                    }
+                    else if (item.getItemMeta().hasDisplayName()) {
+                        if (Arrays.asList(ingredients).contains(item.getItemMeta().getDisplayName().substring(2))) {
+                            addUserDataCouldron(player, item.getItemMeta().getDisplayName().substring(2));
+                            item.setAmount(item.getAmount()-1);
+                            // getServer().broadcastMessage(item.getItemMeta().getDisplayName().substring(2));
+                        }
                     }
                 }
             }
         }
     }
 
-    public static ItemStack addEffect(ItemStack potion, PotionEffectType effect) {
-        PotionMeta potionmeta = (PotionMeta) potion.getItemMeta();
-        PotionEffect new_effect = new PotionEffect(effect, 1, 6);
-        potionmeta.addCustomEffect(new_effect, true);
-        potion.setItemMeta(potionmeta);
+    public ItemStack createPotion(String[] items) {
+        ItemStack potion = new ItemStack(Material.POTION, 1);
+        PotionMeta potion_meta = (PotionMeta) potion.getItemMeta();
+
+//        File folder = new File(getDataFolder()+File.separator+"Ingredients");
+//        File[] listOfFiles = folder.listFiles();
+        // Додедать настакивание эффектов и сделать чтоб варилось по координатоам
+        for (String item : items) {
+            File file = new File(getDataFolder()+File.separator+"Ingredients", item+".yml");
+            FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+            for (String effect : config.getKeys(false)) {
+                String name = (String) config.getConfigurationSection(effect).get("Name");
+                int duraction = (int) config.getConfigurationSection(effect).get("Duraction");
+                int level = (int) config.getConfigurationSection(effect).get("Level");
+                PotionEffect new_effect = new PotionEffect(PotionEffectType.getByName(name), duraction, level);
+                potion_meta.addCustomEffect(new_effect, true);
+            }
+        }
+        potion_meta.setColor(Color.fromRGB(ThreadLocalRandom.current().nextInt(1, 255), ThreadLocalRandom.current().nextInt(1, 255), ThreadLocalRandom.current().nextInt(1, 255)));
+        potion.setItemMeta(potion_meta);
         return potion;
+    }
+
+    public List<String> getUserDataCouldron(String user_name) throws IOException {
+
+        File file = new File(getDataFolder()+File.separator+"PlayerData", user_name+".yml");
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+
+        List<String> data = (ArrayList<String>) config.get("Input-Couldron");
+        return data;
+    }
+
+    public void setUserDataCouldron(String user_name, List<String> data) throws IOException {
+
+        File file = new File(getDataFolder()+File.separator+"PlayerData", user_name+".yml");
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+
+        config.set("Input-Couldron", data);
+        config.save(file);
+    }
+
+    public void addUserDataCouldron(String user_name, String line) throws IOException {
+
+        File file = new File(getDataFolder()+File.separator+"PlayerData", user_name+".yml");
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+        if (config.contains("Input-Couldron")) {
+            List<String> data = (ArrayList<String>) config.get("Input-Couldron");
+            data.add(line);
+            config.set("Input-Couldron", data);
+            config.save(file);
+        }
+        else {
+            List<String> data = new ArrayList<String>();
+            data.add(line);
+            config.set("Input-Couldron", data);
+            config.save(file);
+        }
     }
 }
