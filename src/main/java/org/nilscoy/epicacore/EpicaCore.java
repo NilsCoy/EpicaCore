@@ -132,6 +132,7 @@ public final class EpicaCore extends JavaPlugin implements Listener {
                 }
             }
         }
+        // сделать чтоб варилось по координатоам
         if (event.getHand() == EquipmentSlot.HAND && event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getClickedBlock().getType() == Material.WATER_CAULDRON) {
             getServer().broadcastMessage("1");
             if (!event.getPlayer().getGameMode().name().equals("CREATIVE")) {
@@ -152,6 +153,7 @@ public final class EpicaCore extends JavaPlugin implements Listener {
 
                     if (item.getType() == Material.GLASS_BOTTLE) {
                         item.setAmount(item.getAmount()-1);
+                        // event.getPlayer().getInventory().addItem(createPotion(getUserDataCouldron(player)));
                         event.getPlayer().getInventory().addItem(createPotion(getUserDataCouldron(player).toArray(new String[getUserDataCouldron(player).size()])));
                         // getServer().broadcastMessage("Create new potion");
                         List<String> data = new ArrayList<String>();
@@ -170,23 +172,94 @@ public final class EpicaCore extends JavaPlugin implements Listener {
     }
 
     public ItemStack createPotion(String[] items) {
+        String[] positive = {
+                "REGENERATION",
+                "SPEED",
+                "FAST_DIGGING",
+                "INCREASE_DAMAGE",
+                "HEAL",
+                "LUCK",
+                "SLOW_FALLING",
+                "INVISIBILITY",
+                "NIGHT_VISION",
+                "SATURATION",
+        };
+        String[] negative = {
+                "POISON",
+                "SLOW",
+                "SLOW_DIGGING",
+                "WEAKNESS",
+                "HARM",
+                "UNLUCK",
+                "LEVITATION",
+                "GLOWING",
+                "BLINDNESS",
+                "HUNGER",
+        };
+
         ItemStack potion = new ItemStack(Material.POTION, 1);
         PotionMeta potion_meta = (PotionMeta) potion.getItemMeta();
-
-//        File folder = new File(getDataFolder()+File.separator+"Ingredients");
-//        File[] listOfFiles = folder.listFiles();
-        // Додедать настакивание эффектов и сделать чтоб варилось по координатоам
+        List<String> name_data = new ArrayList<String>();
+        List<Integer> duraction_data = new ArrayList<Integer>();
+        List<Integer> level_data = new ArrayList<Integer>();
+        // Сделать чтоб составлялось из 2 реагентов
         for (String item : items) {
-            File file = new File(getDataFolder()+File.separator+"Ingredients", item+".yml");
+            File file = new File(getDataFolder() + File.separator + "Ingredients", item + ".yml");
             FileConfiguration config = YamlConfiguration.loadConfiguration(file);
             for (String effect : config.getKeys(false)) {
-                String name = (String) config.getConfigurationSection(effect).get("Name");
-                int duraction = (int) config.getConfigurationSection(effect).get("Duraction");
-                int level = (int) config.getConfigurationSection(effect).get("Level");
-                PotionEffect new_effect = new PotionEffect(PotionEffectType.getByName(name), duraction, level);
+                name_data.add((String) config.getConfigurationSection(effect).get("Name"));
+                duraction_data.add((int) config.getConfigurationSection(effect).get("Duraction"));
+                level_data.add((int) config.getConfigurationSection(effect).get("Level"));
+            }
+        }
+        List<String> new_name_data = new ArrayList<String>();
+        List<Integer> new_duraction_data = new ArrayList<Integer>();
+        List<Integer> new_level_data = new ArrayList<Integer>();
+        for (int x = 0; x > name_data.size(); x++) {
+            if (!new_name_data.contains(name_data.get(x))) {
+                int count_effect = 1;
+                for (int y = 0; y > name_data.size(); y++) {
+                    if (name_data.get(x) == name_data.get(y) && y > x && level_data.get(x) == level_data.get(y)) {
+                        count_effect += 1;
+                    }
+                }
+                if (count_effect == 1) {
+                    new_name_data.add(name_data.get(x));
+                    new_duraction_data.add(duraction_data.get(x));
+                    new_level_data.add(level_data.get(x));
+                } else {
+                    new_name_data.add(name_data.get(x));
+                    new_duraction_data.add((int) (duraction_data.get(x)*0.5*count_effect));
+                    new_level_data.add(level_data.get(x) + count_effect % 3);
+                }
+            }
+        }
+        for (int x = 0; x > new_name_data.size(); x++) {
+            boolean remove_effect = false;
+            for (int y = 0; y > new_name_data.size(); y++) {
+                if (Arrays.asList(positive).contains(new_name_data.get(x)) && y > x) {
+                    int index = Arrays.asList(positive).indexOf(new_name_data.get(x));
+                    if (Arrays.asList(negative).get(index) == new_name_data.get(y)) {
+                        if (new_level_data.get(x) == new_level_data.get(y)) {
+                            remove_effect = true;
+                            break;
+                        } else if (new_level_data.get(x) > new_level_data.get(y)) {
+                            new_level_data.set(x, new_level_data.get(x) - new_level_data.get(y));
+                            break;
+                        } else if (new_level_data.get(x) < new_level_data.get(y)) {
+                            new_level_data.set(y, new_level_data.get(y) - new_level_data.get(x));
+                            remove_effect = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!remove_effect) {
+                PotionEffect new_effect = new PotionEffect(PotionEffectType.getByName(new_name_data.get(x)), new_duraction_data.get(x), new_level_data.get(x));
                 potion_meta.addCustomEffect(new_effect, true);
             }
         }
+
         potion_meta.setColor(Color.fromRGB(ThreadLocalRandom.current().nextInt(1, 255), ThreadLocalRandom.current().nextInt(1, 255), ThreadLocalRandom.current().nextInt(1, 255)));
         potion.setItemMeta(potion_meta);
         return potion;
