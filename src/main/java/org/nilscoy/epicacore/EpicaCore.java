@@ -4,18 +4,22 @@ import org.bukkit.ChatColor;
 import org.bukkit.Color;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.material.MaterialData;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -78,9 +82,11 @@ public final class EpicaCore extends JavaPlugin implements Listener {
         ItemStack cursor = event.getCursor();
         int slot = event.getSlot();
         // getServer().broadcastMessage(String.valueOf(cursor.getType().name().split("_", 0)[0]));
-
-        if (cursor.getType().name() != "AIR" && clicked.getType().name() != "AIR") {
-            if (Objects.requireNonNull(cursor.getItemMeta()).getDisplayName().contains("Облик") && Objects.requireNonNull(clicked.getItemMeta()).getLore() == null) {
+        assert cursor != null;
+        if ((!event.getClick().equals(ClickType.DROP) || !event.getClick().equals(ClickType.CONTROL_DROP)) && cursor != null && clicked != null) {
+            assert clicked != null;
+            if (cursor.getType() != Material.AIR && clicked.getType() != Material.AIR) {
+            if (Objects.requireNonNull(cursor.getItemMeta().getDisplayName()).contains("Облик") && Objects.requireNonNull(clicked.getItemMeta()).getLore() == null) {
                 if (cursor.getType().name().split("_", 0).length == 2) {
                     if (cursor.getType().name().split("_", 0)[1].equals(clicked.getType().name().split("_", 0)[1]) && !Objects.equals(cursor.getType().name().split("_", 0)[0], "EPICFIGHT")) {
                         event.setCancelled(true);
@@ -110,7 +116,7 @@ public final class EpicaCore extends JavaPlugin implements Listener {
                     }
                 }
             }
-        }
+        }}
     }
 
     @EventHandler
@@ -134,9 +140,9 @@ public final class EpicaCore extends JavaPlugin implements Listener {
         }
         // сделать чтоб варилось по координатоам
         if (event.getHand() == EquipmentSlot.HAND && event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getClickedBlock().getType() == Material.WATER_CAULDRON) {
-            getServer().broadcastMessage("1");
+            // getServer().broadcastMessage("1");
             if (!event.getPlayer().getGameMode().name().equals("CREATIVE")) {
-                getServer().broadcastMessage("2");
+                // getServer().broadcastMessage("2");
                 event.setCancelled(true);
                 if (item.getType().name() != "AIR") {
                     String[] ingredients = {
@@ -153,8 +159,8 @@ public final class EpicaCore extends JavaPlugin implements Listener {
 
                     if (item.getType() == Material.GLASS_BOTTLE) {
                         item.setAmount(item.getAmount()-1);
-                        // event.getPlayer().getInventory().addItem(createPotion(getUserDataCouldron(player)));
-                        event.getPlayer().getInventory().addItem(createPotion(getUserDataCouldron(player).toArray(new String[getUserDataCouldron(player).size()])));
+                        event.getPlayer().getInventory().addItem(createPotion(getUserDataCouldron(player), player));
+                        // event.getPlayer().getInventory().addItem(createPotion(getUserDataCouldron(player).toArray(new String[getUserDataCouldron(player).size()])));
                         // getServer().broadcastMessage("Create new potion");
                         List<String> data = new ArrayList<String>();
                         setUserDataCouldron(player, data);
@@ -171,7 +177,7 @@ public final class EpicaCore extends JavaPlugin implements Listener {
         }
     }
 
-    public ItemStack createPotion(String[] items) {
+    public ItemStack createPotion(List<String> items, String user_name) {
         String[] positive = {
                 "REGENERATION",
                 "SPEED",
@@ -209,17 +215,17 @@ public final class EpicaCore extends JavaPlugin implements Listener {
             for (String effect : config.getKeys(false)) {
                 name_data.add((String) config.getConfigurationSection(effect).get("Name"));
                 duraction_data.add((int) config.getConfigurationSection(effect).get("Duraction"));
-                level_data.add((int) config.getConfigurationSection(effect).get("Level"));
+                level_data.add((int) config.getConfigurationSection(effect).get("Level")+1);
             }
         }
         List<String> new_name_data = new ArrayList<String>();
         List<Integer> new_duraction_data = new ArrayList<Integer>();
         List<Integer> new_level_data = new ArrayList<Integer>();
-        for (int x = 0; x > name_data.size(); x++) {
+        for (int x = 0; x < name_data.size(); x++) {
             if (!new_name_data.contains(name_data.get(x))) {
                 int count_effect = 1;
-                for (int y = 0; y > name_data.size(); y++) {
-                    if (name_data.get(x) == name_data.get(y) && y > x && level_data.get(x) == level_data.get(y)) {
+                for (int y = 0; y < name_data.size(); y++) {
+                    if (Objects.equals(name_data.get(x), name_data.get(y)) && y > x && Objects.equals(level_data.get(x), level_data.get(y))) {
                         count_effect += 1;
                     }
                 }
@@ -229,25 +235,29 @@ public final class EpicaCore extends JavaPlugin implements Listener {
                     new_level_data.add(level_data.get(x));
                 } else {
                     new_name_data.add(name_data.get(x));
-                    new_duraction_data.add((int) (duraction_data.get(x)*0.5*count_effect));
-                    new_level_data.add(level_data.get(x) + count_effect % 3);
+                    new_duraction_data.add((int) (duraction_data.get(x) * 0.5 * count_effect));
+                    new_level_data.add((int) (level_data.get(x) + count_effect/3));
                 }
             }
         }
-        for (int x = 0; x > new_name_data.size(); x++) {
+        for (int x = 0; x < new_name_data.size(); x++) {
             boolean remove_effect = false;
-            for (int y = 0; y > new_name_data.size(); y++) {
+            for (int y = 0; y < new_name_data.size(); y++) {
                 if (Arrays.asList(positive).contains(new_name_data.get(x)) && y > x) {
                     int index = Arrays.asList(positive).indexOf(new_name_data.get(x));
-                    if (Arrays.asList(negative).get(index) == new_name_data.get(y)) {
-                        if (new_level_data.get(x) == new_level_data.get(y)) {
-                            remove_effect = true;
-                            break;
-                        } else if (new_level_data.get(x) > new_level_data.get(y)) {
-                            new_level_data.set(x, new_level_data.get(x) - new_level_data.get(y));
+                    if (Objects.equals(Arrays.asList(negative).get(index), new_name_data.get(y))) {
+                        if (new_level_data.get(x) > new_level_data.get(y)) {
+                            new_level_data.set(x, new_level_data.get(x) - new_level_data.get(y)-1);
+                            new_name_data.set(y, "");
                             break;
                         } else if (new_level_data.get(x) < new_level_data.get(y)) {
+                            getServer().broadcastMessage(new_level_data.get(y) + " " + new_level_data.get(x));
                             new_level_data.set(y, new_level_data.get(y) - new_level_data.get(x));
+                            remove_effect = true;
+                            break;
+                        }
+                        else {
+                            new_name_data.set(y, "");
                             remove_effect = true;
                             break;
                         }
@@ -255,11 +265,15 @@ public final class EpicaCore extends JavaPlugin implements Listener {
                 }
             }
             if (!remove_effect) {
-                PotionEffect new_effect = new PotionEffect(PotionEffectType.getByName(new_name_data.get(x)), new_duraction_data.get(x), new_level_data.get(x));
-                potion_meta.addCustomEffect(new_effect, true);
+                if (!new_name_data.get(x).equals("")) {
+                    PotionEffect new_effect = new PotionEffect(PotionEffectType.getByName(new_name_data.get(x)), new_duraction_data.get(x), new_level_data.get(x)-1);
+                    potion_meta.addCustomEffect(new_effect, true);
+                }
             }
         }
 
+        potion_meta.setDisplayName(ChatColor.AQUA + "Зелье " + user_name);
+        potion_meta.addItemFlags(ItemFlag.HIDE_POTION_EFFECTS);
         potion_meta.setColor(Color.fromRGB(ThreadLocalRandom.current().nextInt(1, 255), ThreadLocalRandom.current().nextInt(1, 255), ThreadLocalRandom.current().nextInt(1, 255)));
         potion.setItemMeta(potion_meta);
         return potion;
