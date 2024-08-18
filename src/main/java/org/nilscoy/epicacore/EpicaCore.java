@@ -1,10 +1,10 @@
 package org.nilscoy.epicacore;
 
-import org.bukkit.ChatColor;
-import org.bukkit.Color;
-import org.bukkit.GameMode;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -37,20 +37,81 @@ public final class EpicaCore extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
+        if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) { //
+            new Expansion(this).register();
+        }
         getLogger().log(Level.INFO, "Hello!");
         getServer().getPluginManager().registerEvents(this, this);
 
         instance = this;
-//        int version = 14;
-//
-//        getCommand("core").setExecutor(new CommandExecutor() {
-//            @Override
-//            public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
-//
-//                if (strings.length == 0 || strings[0].equalsIgnoreCase("help")) {
-//                    commandSender.sendMessage("Commands:\n- /core reload\n- /core nix_lox\n \nBuild version: "+version);
-//                    return true;
-//                }
+
+        getCommand("core").setExecutor(new CommandExecutor() {
+            @Override
+            public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
+
+                if (strings.length == 0 || strings[0].equalsIgnoreCase("help")) {
+                    //commandSender.sendMessage("Commands:\n- /core reload\n- /core nix_lox\n \nBuild version: "+version);
+                    commandSender.sendMessage("Commands:\n- /core array");
+                    return true;
+                }
+                if (strings[0].equalsIgnoreCase("array")) {
+                    if (strings.length >= 1) {
+                        if (strings[1].equals("get")) {
+                            if (strings.length == 4) {
+                                try {
+                                    commandSender.sendMessage(getServerDataArray(strings[2], Integer.valueOf(strings[3])));
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                            else {
+                                commandSender.sendMessage("Неверное использование команды:\n- /core array get <name> <id>");
+                            }
+                        }
+                        else if (strings[1].equals("add")) {
+                            if (strings.length == 4) {
+                                try {
+                                    addServerDataArray(strings[2], strings[3]);
+                                    commandSender.sendMessage("Массив " + strings[2] + " добавил новые данные: " + strings[3]);
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                            else {
+                                commandSender.sendMessage("Неверное использование команды:\n- /core array add <name> <data-item>");
+                            }
+                        }
+                        else if (strings[1].equals("remove")) {
+                            if (strings.length == 4) {
+                                try {
+                                    removeServerDataArray(strings[2], Integer.valueOf(strings[3]));
+                                    commandSender.sendMessage("Массив " + strings[2] + " удалил данные: " + strings[3]);
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                            else {
+                                commandSender.sendMessage("Неверное использование команды:\n- /core array remove <name> <id>");
+                            }
+                        }
+                        else if (strings[1].equals("length")) {
+                            if (strings.length == 3) {
+                                try {
+                                    commandSender.sendMessage("Массив " + strings[2] + " имеет длину: " + getServerDataArrayLength(strings[2]));
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                            else {
+                                commandSender.sendMessage("Неверное использование команды:\n- /core array length <name>");
+                            }
+                        }
+                        else {
+                            commandSender.sendMessage("Неверное использование команды:\n- /core array get <name> <id>\n- /core array length <name>\n- /core array add <name> <data-item>\n- /core array remove <name> <id>");
+                        }
+                    }
+                    return true;
+                }
 //                if (strings[0].equalsIgnoreCase("reload")) {
 //                    reloadConfig();
 //                    commandSender.sendMessage("EpicaCore reloaded!");
@@ -61,13 +122,14 @@ public final class EpicaCore extends JavaPlugin implements Listener {
 //                    commandSender.sendMessage("nix is lox!");
 //                    return true;
 //                }
-//                return true;
-//            }
-//        });
+                return true;
+            }
+        });
     }
 
     @Override
     public void onDisable() {
+        new Expansion(this).unregister();
         getLogger().log(Level.INFO, "Goodbye!");
     }
 
@@ -145,17 +207,42 @@ public final class EpicaCore extends JavaPlugin implements Listener {
                 // getServer().broadcastMessage("2");
                 event.setCancelled(true);
                 if (item.getType().name() != "AIR") {
-                    String[] ingredients = {
-                            "Лепесток тысячелистника",
-                            "Корень горькоцвета",
-                            "Семена полыни",
-                            "Лист наперстянки",
-                            "Хаустония",
-                            "Лесные ягоды",
-                            "Ягодная настойка",
-                            "Мутниковая вода",
-                            "Тертые растения",
-                    };
+                    File[] dir = new File(getDataFolder() + File.separator + "Reagents").listFiles();
+                    List<String> ingredients = new ArrayList<String>();
+                    for (File file : dir) {
+                        ingredients.add(file.getName().substring(0,file.getName().length()-4));
+                    }
+//                    String[] ingredients = {
+//                            "Ягодная настойка",
+//                            "Мутная вода",
+//                            "Тертые растения",
+//                            "Пепел монстров",
+//                            "Гуща из частей монстров",
+//                            "Цветочная пыльца",
+//                            "Осадок отмоченных растений",
+//                            "Плохо пахнущая смесь",
+//                            "Высушенные растения",
+//                            "Копченые части монстров",
+//                            "Рыбный отвар",
+//                            "Чешуйчатое зелье",
+//                            "Тень в бутылочке",
+//                            "Непонятная слизь",
+//                            "Светящаяся жидкость",
+//                            "Выдавленное масло",
+//                            "Красная настойка",
+//                            "Фиолетовый отвар",
+//                            "Липкая жижа",
+//                            "Смешанные цветы",
+//                            "Светящаяся плесень в настойке",
+//                            "Экстракт росы",
+//                            "Серая каша",
+//                            "Вытолоченные внутренности",
+//                            "Каловая масса",
+//                            "Настойка зеленого мха",
+//                            "Эликсир луговых трав",
+//                            "Цветочный настой",
+//                            "Пепельное зелье",
+//                    };
 
                     if (item.getType() == Material.GLASS_BOTTLE) {
                         item.setAmount(item.getAmount()-1);
@@ -166,7 +253,7 @@ public final class EpicaCore extends JavaPlugin implements Listener {
                         setUserDataCouldron(player, data);
                     }
                     else if (item.getItemMeta().hasDisplayName()) {
-                        if (Arrays.asList(ingredients).contains(item.getItemMeta().getDisplayName().substring(2))) {
+                        if (ingredients.contains(item.getItemMeta().getDisplayName().substring(2))) {
                             addUserDataCouldron(player, item.getItemMeta().getDisplayName().substring(2));
                             item.setAmount(item.getAmount()-1);
                             // getServer().broadcastMessage(item.getItemMeta().getDisplayName().substring(2));
@@ -185,7 +272,6 @@ public final class EpicaCore extends JavaPlugin implements Listener {
                 "INCREASE_DAMAGE",
                 "HEAL",
                 "LUCK",
-                "SLOW_FALLING",
                 "INVISIBILITY",
                 "NIGHT_VISION",
                 "SATURATION",
@@ -197,7 +283,6 @@ public final class EpicaCore extends JavaPlugin implements Listener {
                 "WEAKNESS",
                 "HARM",
                 "UNLUCK",
-                "LEVITATION",
                 "GLOWING",
                 "BLINDNESS",
                 "HUNGER",
@@ -210,7 +295,7 @@ public final class EpicaCore extends JavaPlugin implements Listener {
         List<Integer> level_data = new ArrayList<Integer>();
         // Сделать чтоб составлялось из 2 реагентов
         for (String item : items) {
-            File file = new File(getDataFolder() + File.separator + "Ingredients", item + ".yml");
+            File file = new File(getDataFolder() + File.separator + "Reagents", item + ".yml");
             FileConfiguration config = YamlConfiguration.loadConfiguration(file);
             for (String effect : config.getKeys(false)) {
                 name_data.add((String) config.getConfigurationSection(effect).get("Name"));
@@ -251,7 +336,7 @@ public final class EpicaCore extends JavaPlugin implements Listener {
                             new_name_data.set(y, "");
                             break;
                         } else if (new_level_data.get(x) < new_level_data.get(y)) {
-                            getServer().broadcastMessage(new_level_data.get(y) + " " + new_level_data.get(x));
+                            // getServer().broadcastMessage(new_level_data.get(y) + " " + new_level_data.get(x));
                             new_level_data.set(y, new_level_data.get(y) - new_level_data.get(x));
                             remove_effect = true;
                             break;
@@ -320,6 +405,72 @@ public final class EpicaCore extends JavaPlugin implements Listener {
             List<String> data = new ArrayList<String>();
             data.add(line);
             config.set("Input-Couldron", data);
+            config.save(file);
+        }
+    }
+
+    public String getServerDataArray(String array_name, Integer number) throws IOException {
+
+        File file = new File(getDataFolder()+File.separator+"ServerData", array_name+".yml");
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+
+        List<String> data = (ArrayList<String>) config.get("Data");
+        assert data != null;
+        return data.get(number);
+    }
+    public Integer getServerDataArrayLength(String array_name) throws IOException {
+
+        File file = new File(getDataFolder()+File.separator+"ServerData", array_name+".yml");
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+
+        List<String> data = (ArrayList<String>) config.get("Data");
+        return data.size();
+    }
+
+    public void addServerDataArray(String array_name, String line) throws IOException {
+
+        File file = new File(getDataFolder()+File.separator+"ServerData", array_name+".yml");
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+        if (config.contains("Data")) {
+            List<String> data = (ArrayList<String>) config.get("Data");
+            data.add(line);
+            config.set("Data", data);
+            config.save(file);
+        }
+        else {
+            List<String> data = new ArrayList<String>();
+            data.add(line);
+            config.set("Data", data);
+            config.save(file);
+        }
+    }
+
+    public void removeServerDataArray(String array_name, int number) throws IOException {
+
+        File file = new File(getDataFolder()+File.separator+"ServerData", array_name+".yml");
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+        if (config.contains("Data")) {
+            List<String> data = (ArrayList<String>) config.get("Data");
+            assert data != null;
+            data.remove(number);
+            config.set("Data", data);
+            config.save(file);
+        }
+        else {
+            List<String> data = new ArrayList<String>();
+            config.set("Data", data);
             config.save(file);
         }
     }

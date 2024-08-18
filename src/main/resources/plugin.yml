@@ -3,6 +3,9 @@ version: '${project.version}'
 main: org.nilscoy.epicacore.EpicaCore
 api-version: '1.20'
 authors: [NilsCoy]
-description: Created by Epica
+description: Created for Epica
+depend:
+  - NBTAPI
+  - PlaceholderAPI
 commands:
   core: {}
